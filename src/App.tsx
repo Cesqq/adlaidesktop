@@ -18,6 +18,7 @@ import Subscription from "./pages/Subscription";
 import VerificationCenter from "./pages/VerificationCenter";
 import Architect from "./pages/Architect";
 import Machines from "./pages/Machines";
+import Credentials from "./pages/Credentials";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import CheckoutSuccess from "./pages/CheckoutSuccess";
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/verify" element={<ProtectedRoute><AppLayout><VerificationCenter /></AppLayout></ProtectedRoute>} />
             <Route path="/architect" element={<ProtectedRoute><AppLayout><Architect /></AppLayout></ProtectedRoute>} />
             <Route path="/machines" element={<ProtectedRoute><AppLayout><Machines /></AppLayout></ProtectedRoute>} />
+            <Route path="/credentials" element={<ProtectedRoute><AppLayout><Credentials /></AppLayout></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

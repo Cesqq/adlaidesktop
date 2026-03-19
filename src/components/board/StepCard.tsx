@@ -1,9 +1,12 @@
+import { useState, useEffect } from "react";
 import { Draggable } from "@hello-pangea/dnd";
-import { Clock, Check, ArrowRight, AlertCircle, Play, Settings, ShieldCheck, Terminal, Eye, X, Loader2 } from "lucide-react";
+import { Clock, Check, ArrowRight, AlertCircle, Play, Settings, ShieldCheck, Terminal, Eye, X, Loader2, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { type BoardStep, type BoardStatus, COLUMNS, getNextStatus, CATEGORY_COLORS } from "@/hooks/useProjectBoard";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+import { isTauri, getCredential } from "@/hooks/useTauriCommands";
+import { useNavigate } from "react-router-dom";
 
 const ACTION_LABELS: Record<BoardStatus, { label: string; icon: typeof Play }> = {
   plan: { label: "Start", icon: Play },
@@ -34,11 +37,50 @@ interface Props {
   commandRunning?: boolean;
 }
 
+// Map step_code patterns to credential key suffixes
+const STEP_CODE_TO_CRED: Record<string, string> = {
+  get_anthropic_key: "ANTHROPIC_API_KEY",
+  get_openai_key: "OPENAI_API_KEY",
+  get_openrouter_key: "OPENROUTER_API_KEY",
+  get_brave_key: "BRAVE_API_KEY",
+  get_telegram_token: "TELEGRAM_BOT_TOKEN",
+  get_discord_token: "DISCORD_BOT_TOKEN",
+  get_whatsapp_token: "WHATSAPP_TOKEN",
+};
+
 export function StepCard({ step, index, onAction, onClick, selectedMachineId, selectedMachineOnline, activePlanId, onRunOnMachine, onViewOutput, lastRun, commandRunning }: Props) {
   const col = COLUMNS.find((c) => c.key === step.status);
   const action = ACTION_LABELS[step.status];
   const canRun = !!selectedMachineId && !!selectedMachineOnline && !activePlanId;
   const catColor = CATEGORY_COLORS[step.category] ?? { bg: "rgba(100,100,100,0.15)", text: "#999" };
+  const navigate = useNavigate();
+
+  // Credential status check for configure steps
+  const isDesktop = isTauri();
+  const credEnvVar = STEP_CODE_TO_CRED[(step as any).step_code ?? ""];
+  const [credStatus, setCredStatus] = useState<"unknown" | "found" | "missing">("unknown");
+
+  useEffect(() => {
+    if (!isDesktop || step.category !== "configure" || !credEnvVar) return;
+    let cancelled = false;
+    // Check all common framework prefixes
+    (async () => {
+      try {
+        // Try a generic lookup — the key pattern is "adlai-studio-{framework}-{envVar}"
+        // We don't know the framework here, so check via listCredentials would be better.
+        // For now, try the common ones:
+        for (const fw of ["openclaw", "zeroclaw", "nanobot"]) {
+          const val = await getCredential(`adlai-studio-${fw}-${credEnvVar}`);
+          if (cancelled) return;
+          if (val) { setCredStatus("found"); return; }
+        }
+        if (!cancelled) setCredStatus("missing");
+      } catch {
+        if (!cancelled) setCredStatus("unknown");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isDesktop, step.category, credEnvVar]);
 
   return (
     <Draggable draggableId={step.id} index={index}>
@@ -76,6 +118,24 @@ export function StepCard({ step, index, onAction, onClick, selectedMachineId, se
             <p className="text-xs text-warning flex items-center gap-1">
               <AlertCircle className="h-3 w-3" /> Missing API key or config
             </p>
+          )}
+
+          {/* Credential status indicator (Tauri only, configure steps) */}
+          {isDesktop && credEnvVar && credStatus !== "unknown" && (
+            <div className="flex items-center gap-1.5">
+              {credStatus === "found" ? (
+                <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-medium">
+                  <Key className="h-3 w-3" /> Key configured
+                </span>
+              ) : (
+                <button
+                  className="flex items-center gap-1 text-[10px] text-red-400 hover:text-red-300 transition-colors"
+                  onClick={(e) => { e.stopPropagation(); navigate("/credentials"); }}
+                >
+                  <Key className="h-3 w-3" /> Key missing — Configure
+                </button>
+              )}
+            </div>
           )}
 
           {/* Tags row */}

@@ -1,4 +1,4 @@
-import { FolderPlus, FolderOpen, User, Sparkles, LogOut, ShieldCheck, Crown, Monitor, LayoutDashboard, BookOpen } from "lucide-react";
+import { FolderPlus, FolderOpen, User, Sparkles, LogOut, ShieldCheck, Crown, Monitor, LayoutDashboard, BookOpen, Key } from "lucide-react";
 import mascotHero from "@/assets/mascot-hero.png";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,6 +23,7 @@ const navItems = [
   { title: "Setup Wizard", url: "/projects/new", icon: FolderPlus },
   { title: "Projects", url: "/projects", icon: FolderOpen, end: true },
   { title: "Machines", url: "/machines", icon: Monitor },
+  { title: "Credentials", url: "/credentials", icon: Key },
   { title: "AI Architect", url: "/architect", icon: Sparkles },
   { title: "Verify", url: "/verify", icon: ShieldCheck },
   { title: "Docs", url: "/docs", icon: BookOpen },

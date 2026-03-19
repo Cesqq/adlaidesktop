@@ -1,0 +1,92 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Mascot-matching palette: Purple/Violet primary, Cyan accent */
+    --background: 260 35% 8%;
+    --foreground: 270 30% 92%;
+
+    --card: 260 30% 12%;
+    --card-foreground: 270 30% 92%;
+
+    --popover: 260 30% 12%;
+    --popover-foreground: 270 30% 92%;
+
+    /* Vibrant violet matching mascot body */
+    --primary: 265 70% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Cyan glow matching mascot antenna/accents */
+    --secondary: 190 85% 55%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 260 25% 18%;
+    --muted-foreground: 260 20% 60%;
+
+    --accent: 260 25% 18%;
+    --accent-foreground: 270 30% 92%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 260 20% 22%;
+    --input: 260 20% 22%;
+    --ring: 265 70% 60%;
+
+    --radius: 0.75rem;
+
+    --success: 160 84% 39%;
+    --warning: 40 92% 55%;
+    --info: 190 85% 55%;
+
+    --premium: 43 96% 56%;
+    --premium-foreground: 0 0% 10%;
+
+    /* Gradient from violet to cyan like the mascot glow */
+    --gradient-primary: linear-gradient(135deg, hsl(265, 70%, 60%), hsl(190, 85%, 55%));
+
+    --sidebar-background: 260 30% 7%;
+    --sidebar-foreground: 270 30% 92%;
+    --sidebar-primary: 265 70% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 260 25% 16%;
+    --sidebar-accent-foreground: 270 30% 92%;
+    --sidebar-border: 260 20% 19%;
+    --sidebar-ring: 265 70% 60%;
+
+    font-family: 'DM Sans', sans-serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+}
+
+@layer utilities {
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .card-hover:hover {
+    border-color: hsl(260, 60%, 65%);
+    transform: translateY(-2px);
+  }
+}

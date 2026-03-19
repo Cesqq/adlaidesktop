@@ -1,9 +1,11 @@
-import { FolderPlus, FolderOpen, User, Sparkles, LogOut, ShieldCheck, Crown, Monitor, LayoutDashboard, BookOpen, Key } from "lucide-react";
+import { FolderPlus, FolderOpen, User, Sparkles, LogOut, ShieldCheck, Crown, Monitor, LayoutDashboard, BookOpen, Key, Activity } from "lucide-react";
 import mascotHero from "@/assets/mascot-hero.png";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useSidebarHealthDot } from "@/hooks/useHealthPolling";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +24,7 @@ const navItems = [
   { title: "Dashboard", url: "/projects", icon: LayoutDashboard },
   { title: "Setup Wizard", url: "/projects/new", icon: FolderPlus },
   { title: "Projects", url: "/projects", icon: FolderOpen, end: true },
+  { title: "Health", url: "/health", icon: Activity },
   { title: "Machines", url: "/machines", icon: Monitor },
   { title: "Credentials", url: "/credentials", icon: Key },
   { title: "AI Architect", url: "/architect", icon: Sparkles },
@@ -31,11 +34,18 @@ const navItems = [
   { title: "Account", url: "/account", icon: User },
 ];
 
+const DOT_COLORS = {
+  green: "bg-emerald-400",
+  gray: "bg-muted-foreground/40",
+  red: "bg-red-400",
+};
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { signOut } = useAuth();
   const { isPro } = useSubscription();
+  const healthDot = useSidebarHealthDot();
 
   return (
     <Sidebar collapsible="icon">
@@ -75,6 +85,10 @@ export function AppSidebar() {
                       {!collapsed && (
                         <span className="flex items-center gap-2">
                           {item.title}
+                          {/* Health status dot */}
+                          {item.url === "/health" && (
+                            <span className={cn("h-2 w-2 rounded-full", DOT_COLORS[healthDot])} />
+                          )}
                           {item.url === "/architect" && isPro && (
                             <Badge variant="outline" className="text-[10px] text-primary border-primary/40 py-0">Pro</Badge>
                           )}

@@ -168,3 +168,19 @@ export async function listCredentials(): Promise<string[]> {
   if (!isTauri()) return [];
   return await invoke<string[]>("list_credentials");
 }
+
+// ---------------------------------------------------------------------------
+// Tray updates
+// ---------------------------------------------------------------------------
+
+export interface TrayAgentInfo {
+  name: string;
+  status: string;
+  pid?: number | null;
+}
+
+/** Update the system tray menu with current agent status. */
+export async function updateTrayMenu(agents: TrayAgentInfo[]): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("update_tray_menu", { agents });
+}

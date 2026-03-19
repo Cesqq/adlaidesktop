@@ -29,6 +29,8 @@ pub fn run() {
             commands::cli::list_running_processes,
             // Agent health checks
             commands::health::check_agent_health,
+            // Tray updates
+            commands::system::update_tray_menu,
         ])
         .setup(|app| {
             tray::setup_tray(app)?;

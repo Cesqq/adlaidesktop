@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use serde_json::json;
 use sysinfo::System;
 
@@ -112,4 +113,25 @@ fn compare_versions(current: &str, expected: &str) -> bool {
         }
     }
     true // equal
+}
+
+// ---------------------------------------------------------------------------
+// Tray menu update (called by frontend after each health poll)
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+pub struct TrayAgentInfo {
+    pub name: String,
+    pub status: String,
+    pub pid: Option<u32>,
+}
+
+/// Update the system tray menu and tooltip based on current agent status.
+/// Called by the frontend health polling hook.
+#[tauri::command]
+pub async fn update_tray_menu(
+    app: tauri::AppHandle,
+    agents: Vec<TrayAgentInfo>,
+) -> Result<(), String> {
+    crate::tray::rebuild_tray_menu(&app, &agents).map_err(|e| e.to_string())
 }

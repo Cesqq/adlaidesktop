@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Draggable } from "@hello-pangea/dnd";
-import { Clock, Check, ArrowRight, AlertCircle, Play, Settings, ShieldCheck, Terminal, Eye, X, Loader2, Key } from "lucide-react";
+import { Clock, Check, ArrowRight, AlertCircle, Play, Settings, ShieldCheck, Terminal, Eye, X, Loader2, Key, RotateCcw, CheckSquare, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { type BoardStep, type BoardStatus, COLUMNS, getNextStatus, CATEGORY_COLORS } from "@/hooks/useProjectBoard";
+import { type BoardStep, type BoardStatus, COLUMNS, CATEGORY_COLORS } from "@/hooks/useProjectBoard";
+import { type VerifyResult } from "@/hooks/useStepVerification";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { isTauri, getCredential } from "@/hooks/useTauriCommands";
@@ -35,9 +36,11 @@ interface Props {
   onViewOutput?: (step: BoardStep) => void;
   lastRun?: LastRun | null;
   commandRunning?: boolean;
+  verifyResult?: VerifyResult;
+  onVerify?: (step: BoardStep) => void;
+  onMarkComplete?: (step: BoardStep) => void;
 }
 
-// Map step_code patterns to credential key suffixes
 const STEP_CODE_TO_CRED: Record<string, string> = {
   get_anthropic_key: "ANTHROPIC_API_KEY",
   get_openai_key: "OPENAI_API_KEY",
@@ -48,27 +51,22 @@ const STEP_CODE_TO_CRED: Record<string, string> = {
   get_whatsapp_token: "WHATSAPP_TOKEN",
 };
 
-export function StepCard({ step, index, onAction, onClick, selectedMachineId, selectedMachineOnline, activePlanId, onRunOnMachine, onViewOutput, lastRun, commandRunning }: Props) {
+export function StepCard({ step, index, onAction, onClick, selectedMachineId, selectedMachineOnline, activePlanId, onRunOnMachine, onViewOutput, lastRun, commandRunning, verifyResult, onVerify, onMarkComplete }: Props) {
   const col = COLUMNS.find((c) => c.key === step.status);
   const action = ACTION_LABELS[step.status];
   const canRun = !!selectedMachineId && !!selectedMachineOnline && !activePlanId;
   const catColor = CATEGORY_COLORS[step.category] ?? { bg: "rgba(100,100,100,0.15)", text: "#999" };
   const navigate = useNavigate();
-
-  // Credential status check for configure steps
   const isDesktop = isTauri();
   const credEnvVar = STEP_CODE_TO_CRED[(step as any).step_code ?? ""];
   const [credStatus, setCredStatus] = useState<"unknown" | "found" | "missing">("unknown");
+  const [showFailOutput, setShowFailOutput] = useState(false);
 
   useEffect(() => {
     if (!isDesktop || step.category !== "configure" || !credEnvVar) return;
     let cancelled = false;
-    // Check all common framework prefixes
     (async () => {
       try {
-        // Try a generic lookup — the key pattern is "adlai-studio-{framework}-{envVar}"
-        // We don't know the framework here, so check via listCredentials would be better.
-        // For now, try the common ones:
         for (const fw of ["openclaw", "zeroclaw", "nanobot"]) {
           const val = await getCredential(`adlai-studio-${fw}-${credEnvVar}`);
           if (cancelled) return;
@@ -81,6 +79,13 @@ export function StepCard({ step, index, onAction, onClick, selectedMachineId, se
     })();
     return () => { cancelled = true; };
   }, [isDesktop, step.category, credEnvVar]);
+
+  const hasVerifyCommand = !!step.verify_command;
+  const isLive = step.status === "live";
+  const vStatus = verifyResult?.status ?? "idle";
+  const isPassed = vStatus === "passed";
+  const isFailed = vStatus === "failed";
+  const isVerifying = vStatus === "running";
 
   return (
     <Draggable draggableId={step.id} index={index}>
@@ -95,32 +100,29 @@ export function StepCard({ step, index, onAction, onClick, selectedMachineId, se
             snapshot.isDragging
               ? "border-primary shadow-lg shadow-primary/20 rotate-1"
               : "border-border hover:border-primary/50 hover:-translate-y-0.5",
-            commandRunning && "border-blue-500/50"
+            commandRunning && "border-blue-500/50",
+            isPassed && "border-emerald-500/40 bg-emerald-500/5",
+            isFailed && "border-red-500/20",
           )}
         >
-          {/* Running spinner overlay */}
           {commandRunning && (
             <div className="absolute top-2 right-2">
               <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
             </div>
           )}
 
-          {/* Title */}
           <span className="text-sm font-medium text-foreground leading-tight block">{step.title}</span>
 
-          {/* Description */}
           <p className="text-xs text-muted-foreground line-clamp-2">
             {step.description ?? "Complete this setup step"}
           </p>
 
-          {/* Needs info warning */}
           {step.status === "needs_info" && (
             <p className="text-xs text-warning flex items-center gap-1">
               <AlertCircle className="h-3 w-3" /> Missing API key or config
             </p>
           )}
 
-          {/* Credential status indicator (Tauri only, configure steps) */}
           {isDesktop && credEnvVar && credStatus !== "unknown" && (
             <div className="flex items-center gap-1.5">
               {credStatus === "found" ? (
@@ -138,9 +140,45 @@ export function StepCard({ step, index, onAction, onClick, selectedMachineId, se
             </div>
           )}
 
-          {/* Tags row */}
+          {/* Verify result inline */}
+          {isPassed && (
+            <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-medium">
+              <Check className="h-3 w-3" />
+              Verified{verifyResult?.output ? ` — ${verifyResult.output.split("\n")[0].slice(0, 40)}` : ""}
+            </div>
+          )}
+          {isFailed && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-[10px] text-red-400">
+                <X className="h-3 w-3" />
+                {verifyResult?.error ?? "Verification failed"}
+              </div>
+              {showFailOutput && verifyResult?.output && (
+                <pre className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1 max-h-[60px] overflow-y-auto font-mono whitespace-pre-wrap">
+                  {verifyResult.output.slice(0, 200)}
+                </pre>
+              )}
+              <div className="flex items-center gap-2">
+                {onVerify && (
+                  <button
+                    className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                    onClick={(e) => { e.stopPropagation(); onVerify(step); }}
+                  >
+                    <RotateCcw className="h-2.5 w-2.5" /> Retry
+                  </button>
+                )}
+                <button
+                  className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5"
+                  onClick={(e) => { e.stopPropagation(); setShowFailOutput(!showFailOutput); }}
+                >
+                  <HelpCircle className="h-2.5 w-2.5" /> {showFailOutput ? "Hide" : "Output"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Tags */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Category badge */}
             <span
               className="rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize"
               style={{ backgroundColor: catColor.bg, color: catColor.text }}
@@ -154,60 +192,81 @@ export function StepCard({ step, index, onAction, onClick, selectedMachineId, se
             )}
           </div>
 
-          {/* Action button */}
-          {step.status !== "live" && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="w-full h-7 text-xs mt-1"
-              style={{ color: col?.color }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onAction(step);
-              }}
-            >
-              <action.icon className="mr-1 h-3 w-3" />
-              {action.label}
-            </Button>
+          {/* Verify / Mark Complete / Action buttons */}
+          {!isLive && (
+            <div className="space-y-1.5">
+              {hasVerifyCommand && onVerify && !isPassed && (
+                <Button
+                  size="sm"
+                  variant={isFailed ? "outline" : "default"}
+                  className={cn("w-full h-7 text-xs gap-1", isFailed && "border-red-500/30 text-red-400")}
+                  disabled={isVerifying || !isDesktop}
+                  title={!isDesktop ? "Open desktop app to verify" : undefined}
+                  onClick={(e) => { e.stopPropagation(); onVerify(step); }}
+                >
+                  {isVerifying ? (
+                    <><Loader2 className="h-3 w-3 animate-spin" /> Verifying…</>
+                  ) : isFailed ? (
+                    <><RotateCcw className="h-3 w-3" /> Retry Verify</>
+                  ) : (
+                    <><ShieldCheck className="h-3 w-3" /> Verify</>
+                  )}
+                </Button>
+              )}
+
+              {!hasVerifyCommand && onMarkComplete && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="w-full h-7 text-xs gap-1"
+                  style={{ color: col?.color }}
+                  onClick={(e) => { e.stopPropagation(); onMarkComplete(step); }}
+                >
+                  <CheckSquare className="h-3 w-3" /> Mark Complete
+                </Button>
+              )}
+
+              {hasVerifyCommand && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="w-full h-7 text-xs text-muted-foreground"
+                  onClick={(e) => { e.stopPropagation(); onAction(step); }}
+                >
+                  <action.icon className="mr-1 h-3 w-3" />
+                  {action.label} manually
+                </Button>
+              )}
+            </div>
           )}
 
-          {step.status === "live" && (
+          {isLive && (
             <div className="flex justify-center">
               <Check className="h-4 w-4 text-green-500" />
             </div>
           )}
 
-          {/* Run on Machine button */}
-          {step.status !== "live" && onRunOnMachine && (
+          {!isLive && onRunOnMachine && (
             <Button
               size="sm"
               variant="outline"
               className="w-full h-7 text-xs"
               disabled={!canRun}
-              onClick={(e) => {
-                e.stopPropagation();
-                onRunOnMachine(step);
-              }}
+              onClick={(e) => { e.stopPropagation(); onRunOnMachine(step); }}
             >
-              <Terminal className="mr-1 h-3 w-3" />
-              Run on Machine
+              <Terminal className="mr-1 h-3 w-3" /> Run on Machine
             </Button>
           )}
 
-          {/* View Output link */}
           {activePlanId && onViewOutput && (
             <button
               className="w-full flex items-center justify-center gap-1 text-[10px] text-primary hover:underline"
-              onClick={(e) => {
-                e.stopPropagation();
-                onViewOutput(step);
-              }}
+              onClick={(e) => { e.stopPropagation(); onViewOutput(step); }}
             >
               <Eye className="h-3 w-3" /> View Output
             </button>
           )}
 
-          {/* Last run info */}
           {lastRun && (
             <button
               className={cn(
@@ -217,10 +276,7 @@ export function StepCard({ step, index, onAction, onClick, selectedMachineId, se
                 lastRun.status === "failed" && "text-destructive",
                 !["running", "succeeded", "failed"].includes(lastRun.status) && "text-muted-foreground"
               )}
-              onClick={(e) => {
-                e.stopPropagation();
-                onViewOutput?.(step);
-              }}
+              onClick={(e) => { e.stopPropagation(); onViewOutput?.(step); }}
             >
               {lastRun.status === "running" && <Loader2 className="h-3 w-3 animate-spin" />}
               {lastRun.status === "succeeded" && <Check className="h-3 w-3" />}

@@ -2,6 +2,7 @@ import { Droppable } from "@hello-pangea/dnd";
 import { StepCard } from "./StepCard";
 import { type BoardStep } from "@/hooks/useProjectBoard";
 import { type CommandRealtimeState } from "@/hooks/useCommandRealtime";
+import { type VerifyResult } from "@/hooks/useStepVerification";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -18,9 +19,12 @@ interface Props {
   commandStates?: Map<string, CommandRealtimeState>;
   onRunOnMachine?: (step: BoardStep) => void;
   onViewOutput?: (step: BoardStep) => void;
+  verifyResults?: Record<string, VerifyResult>;
+  onVerify?: (step: BoardStep) => void;
+  onMarkComplete?: (step: BoardStep) => void;
 }
 
-export function BoardColumn({ columnKey, label, color, steps, onAction, onCardClick, selectedMachineId, selectedMachineOnline, stepPlanMap, planStatusMap, commandStates, onRunOnMachine, onViewOutput }: Props) {
+export function BoardColumn({ columnKey, label, color, steps, onAction, onCardClick, selectedMachineId, selectedMachineOnline, stepPlanMap, planStatusMap, commandStates, onRunOnMachine, onViewOutput, verifyResults, onVerify, onMarkComplete }: Props) {
   return (
     <div className="flex w-64 shrink-0 flex-col rounded-xl border border-border bg-muted/20 lg:w-auto lg:shrink">
       {/* Header */}
@@ -66,6 +70,9 @@ export function BoardColumn({ columnKey, label, color, steps, onAction, onCardCl
                     onViewOutput={onViewOutput}
                     lastRun={lastRun}
                     commandRunning={cmdState?.hasRunning ?? false}
+                    verifyResult={verifyResults?.[step.id]}
+                    onVerify={onVerify}
+                    onMarkComplete={onMarkComplete}
                   />
                 );
               })}

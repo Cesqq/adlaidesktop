@@ -15,6 +15,7 @@ import { useProjectPlans, useCreatePlan } from "@/hooks/useCommandPlan";
 import { useMachines, isOnline } from "@/hooks/useMachines";
 import { useCommandRealtime } from "@/hooks/useCommandRealtime";
 import { useMachinePresence } from "@/hooks/useMachinePresence";
+import { useStepVerification } from "@/hooks/useStepVerification";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
@@ -42,17 +43,42 @@ export default function ProjectBoard() {
     moveStep,
   });
 
-  // Check if any plan is currently running
   const hasRunningPlan = Array.from(commandStates.values()).some((s) => s.hasRunning);
 
-  // Presence-based machine status
   const { onlineMachineIds, connectionLost } = useMachinePresence({
     userId: user?.id,
     selectedMachineId,
     hasRunningPlan,
   });
 
-  // Build planStatusMap: step_id → latest plan info for "Last run" display
+  // Step verification
+  const { results: verifyResults, verifyAllProgress, verifySingle, verifyAll, isDesktop } = useStepVerification({
+    onStepPassed: (stepId) => {
+      const step = steps.find((s) => s.id === stepId);
+      if (step) {
+        moveStep.mutate({ stepStatusId: step.id, newStatus: getNextStatus(step.status) });
+        toast.success(`${step.title} — verified ✓`);
+      }
+    },
+  });
+
+  const handleVerify = (step: BoardStep) => verifySingle(step);
+  const handleVerifyAll = () => {
+    verifyAll(steps).then(() => {
+      const vp = verifyAllProgress;
+      if (vp && !vp.running) {
+        const needs = vp.failed;
+        toast(
+          needs > 0
+            ? `${vp.passed}/${vp.total} steps verified. ${needs} need attention.`
+            : `All ${vp.total} steps verified! ✓`,
+        );
+      }
+    });
+  };
+  const handleMarkComplete = (step: BoardStep) => handleAction(step);
+
+  // Plan tracking maps
   const planStatusMap = new Map<string, { status: string; createdAt: string; planId: string }>();
   (plans ?? []).forEach((p) => {
     if (!planStatusMap.has(p.step_id)) {
@@ -60,7 +86,6 @@ export default function ProjectBoard() {
     }
   });
 
-  // Map step_id → latest active plan id
   const stepPlanMap = new Map<string, string>();
   (plans ?? []).forEach((p) => {
     if (!stepPlanMap.has(p.step_id)) stepPlanMap.set(p.step_id, p.id);
@@ -107,7 +132,6 @@ export default function ProjectBoard() {
     if (planId) setDrawerPlanId(planId);
   };
 
-  // Find step title + machine label for drawer
   const drawerStep = drawerPlanId
     ? steps.find((s) => {
         const plan = (plans ?? []).find((p) => p.id === drawerPlanId);
@@ -146,7 +170,6 @@ export default function ProjectBoard() {
         <ArrowLeft className="h-4 w-4" /> Back to Projects
       </Link>
 
-      {/* Connection lost warning */}
       {connectionLost && selectedMachine && (
         <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning animate-in fade-in duration-300">
           <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -160,6 +183,9 @@ export default function ProjectBoard() {
         selectedMachineId={selectedMachineId}
         onMachineChange={setSelectedMachineId}
         hasFailedPlan={hasFailedPlan}
+        onVerifyAll={handleVerifyAll}
+        verifyAllProgress={verifyAllProgress}
+        isDesktop={isDesktop}
       />
 
       <Tabs defaultValue="board" className="space-y-4">
@@ -201,6 +227,9 @@ export default function ProjectBoard() {
                     commandStates={commandStates}
                     onRunOnMachine={handleRunOnMachine}
                     onViewOutput={handleViewOutput}
+                    verifyResults={verifyResults}
+                    onVerify={handleVerify}
+                    onMarkComplete={handleMarkComplete}
                   />
                 ))}
               </div>
